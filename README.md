@@ -131,13 +131,15 @@ graduate-risk-analytics/
 │   ├── classification_models.py # Family A (A1-A4)
 │   ├── anomaly_models.py        # Family B (B1-B3) + AnomalyDetectorWrapper
 │   ├── evaluation.py            # CV framework, PR-AUC scoring, stats tests
-│   └── explainability.py        # permutation importance, SHAP
+│   ├── explainability.py        # permutation importance, SHAP
+│   └── reporting.py             # saves figures/tables to reports/ (cwd-independent)
 ├── reports/
-│   ├── figures/
-│   ├── tables/           # CV summary tables + raw fold scores (.pkl, gitignored)
+│   ├── figures/          # PNG figures saved by the notebooks
+│   ├── tables/           # result tables (.csv/.json) + raw fold scores (.pkl, gitignored)
 │   └── manuscript/        # thesis writing lives here
 ├── tests/
-│   └── test_pipeline.py
+│   ├── test_pipeline.py
+│   └── test_reporting.py
 ├── requirements.txt
 ├── README.md
 ├── LICENSE
@@ -166,12 +168,17 @@ Run the notebooks in order. Each is self-contained given the previous
 notebook's output (`data/processed/tracer_study_processed.csv` after
 `02_preprocessing.ipynb`; `reports/tables/*.csv`/`.pkl` after `03`/`04`):
 
-1. `01_eda.ipynb` — exploratory analysis, no side effects.
+1. `01_eda.ipynb` — exploratory analysis; saves EDA figures and summary tables.
 2. `02_preprocessing.ipynb` — produces `data/processed/tracer_study_processed.csv`.
-3. `03_imbalance_classification.ipynb` — produces `reports/tables/family_a_*`.
-4. `04_anomaly_detection.ipynb` — produces `reports/tables/family_b_*`.
+3. `03_imbalance_classification.ipynb` — produces `reports/tables/family_a_*` and `reports/figures/family_a_*`.
+4. `04_anomaly_detection.ipynb` — produces `reports/tables/family_b_*` and `reports/figures/family_b_*`.
 5. `05_evaluation.ipynb` — combines both, runs statistical tests.
 6. `06_explainability.ipynb` — permutation importance / SHAP on the winning model.
+
+Every figure and table under `reports/` is written by these notebooks via
+`src/reporting.py`, except `reports/tables/family_a_nested_cv_summary.csv`,
+which comes from a one-off `nested_cross_validate()` run not yet captured in
+a notebook.
 
 ## Data and privacy
 

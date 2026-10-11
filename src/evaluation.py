@@ -33,6 +33,7 @@ from sklearn.metrics import (
 from scipy.stats import friedmanchisquare, wilcoxon
 
 from src.feature_engineering import POS_LABEL
+from src.reporting import save_figure
 
 RANDOM_STATE = 42
 N_SPLITS = 5
@@ -378,8 +379,11 @@ def evaluate_on_holdout(model, X_test, y_test, threshold=0.5):
 # PLOTS
 # ==========================================================
 
-def plot_precision_recall_curves(models, X_test, y_test):
+def plot_precision_recall_curves(models, X_test, y_test, save_as=None):
     """PR curves for POS_LABEL across all fitted models.
+
+    save_as: optional file name (no extension) to also save the
+    figure to reports/figures/.
 
     Uses from_predictions with manually-extracted scores rather
     than from_estimator — sklearn's from_estimator runs an
@@ -411,13 +415,18 @@ def plot_precision_recall_curves(models, X_test, y_test):
     ax.set_title(f"Precision-Recall Curves — Class {POS_LABEL} (Unemployed)")
     ax.legend(fontsize=7, loc="upper right")
     plt.tight_layout()
+    if save_as:
+        save_figure(fig, save_as)
     plt.show()
 
 
 def plot_confusion_matrix(model, X_test, y_test, threshold=None,
-                           labels=("Unemployed", "Employed"), title="Confusion Matrix"):
+                           labels=("Unemployed", "Employed"), title="Confusion Matrix",
+                           save_as=None):
     """threshold=None uses the model's own .predict(); pass a
-    threshold to apply it via predict_with_threshold instead."""
+    threshold to apply it via predict_with_threshold instead.
+    save_as: optional file name (no extension) to also save the
+    figure to reports/figures/."""
 
     fig, ax = plt.subplots(figsize=(5, 4))
 
@@ -436,4 +445,6 @@ def plot_confusion_matrix(model, X_test, y_test, threshold=None,
 
     ax.set_title(title)
     plt.tight_layout()
+    if save_as:
+        save_figure(fig, save_as)
     plt.show()

@@ -1,0 +1,15 @@
+feature,mean_abs_shap
+numeric__working_student,0.10823725640811474
+numeric__study_conditions_index,0.09297586072154207
+numeric__competency_index,0.04246170310226072
+numeric__learning_experience_index,0.034762590550816826
+nominal__program_BSEd Math,0.028698268849599442
+numeric__guidance_support_index,0.02865783861533801
+numeric__study_hours,0.028080388900161898
+numeric__school_choice_index,0.025135568852929797
+numeric__age,0.02198534622332837
+nominal__program_BSEd English,0.016900289845754243
+numeric__sex,0.014316207027011996
+nominal__program_BSEd Science,0.01046578840077748
+numeric__internship,0.008690895657423987
+nominal__program_BEED,0.008499171422068616

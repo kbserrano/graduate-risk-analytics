@@ -1,0 +1,13 @@
+model_a,model_b,p_value,significant
+A4_ADASYN_RandomForest,B2_OneClassSVM,8.855280952957401e-10,True
+A3_SMOTE_RandomForest,B2_OneClassSVM,2.5633326572460646e-09,True
+A1_RandomForest_ClassWeighted,B2_OneClassSVM,9.772863407420118e-09,True
+A4_ADASYN_RandomForest,B1_IsolationForest,2.6378053519238165e-08,True
+A3_SMOTE_RandomForest,B1_IsolationForest,1.7394549622906652e-07,True
+A1_RandomForest_ClassWeighted,B1_IsolationForest,2.649707155910619e-07,True
+A4_ADASYN_RandomForest,B3_LocalOutlierFactor,1.859966783257505e-06,True
+A3_SMOTE_RandomForest,B3_LocalOutlierFactor,1.4422642710343325e-05,True
+A1_RandomForest_ClassWeighted,B3_LocalOutlierFactor,3.818192634774675e-05,True
+A2_XGBoost_ScalePosWeight,B2_OneClassSVM,6.206318512269604e-05,True
+A2_XGBoost_ScalePosWeight,B1_IsolationForest,0.0008475708983652908,True
+A2_XGBoost_ScalePosWeight,B3_LocalOutlierFactor,0.009674503529771172,False

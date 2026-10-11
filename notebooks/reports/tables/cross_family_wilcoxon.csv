@@ -1,4 +1,0 @@
-,model_a,model_b,p_value,significant
-1,A1_RandomForest_ClassWeighted,B2_OneClassSVM,0.0002,True
-2,A1_RandomForest_ClassWeighted,B3_LocalOutlierFactor,0.001,True
-0,A1_RandomForest_ClassWeighted,B1_IsolationForest,0.0024,True
