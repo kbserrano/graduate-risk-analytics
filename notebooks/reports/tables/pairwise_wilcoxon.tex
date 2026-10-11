@@ -1,0 +1,16 @@
+\begin{table}[htbp]
+\caption{Pairwise Wilcoxon signed-rank tests on cross-validated PR-AUC, Bonferroni-corrected (α=0.05).}
+\label{tab:pairwise_wilcoxon}
+\begin{tabular}{lllrrr}
+\toprule
+ & model\_a & model\_b & statistic & p\_value & significant \\
+\midrule
+1 & A1\_RandomForest\_ClassWeighted & B2\_OneClassSVM & 265.000 & 0.000 & True \\
+2 & A1\_RandomForest\_ClassWeighted & B3\_LocalOutlierFactor & 303.000 & 0.001 & True \\
+0 & A1\_RandomForest\_ClassWeighted & B1\_IsolationForest & 328.000 & 0.002 & True \\
+5 & B2\_OneClassSVM & B3\_LocalOutlierFactor & 432.000 & 0.047 & False \\
+3 & B1\_IsolationForest & B2\_OneClassSVM & 490.000 & 0.157 & False \\
+4 & B1\_IsolationForest & B3\_LocalOutlierFactor & 528.000 & 0.401 & False \\
+\bottomrule
+\end{tabular}
+\end{table}

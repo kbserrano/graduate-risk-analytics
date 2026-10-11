@@ -1,0 +1,2 @@
+model,pr_auc_mean,pr_auc_std,pr_auc_ci_low,pr_auc_ci_high,n_outer_folds
+A1_RandomForest_ClassWeighted,0.31527719017148215,0.11670761278507813,0.25855969691114106,0.37643114886927875,15

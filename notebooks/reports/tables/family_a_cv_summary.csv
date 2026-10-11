@@ -1,0 +1,2 @@
+,accuracy,precision,recall,f1,pr_auc,accuracy_std,precision_std,recall_std,f1_std,pr_auc_std
+A1_RandomForest_ClassWeighted,0.773,0.416,0.332,0.346,0.453,0.059,0.248,0.206,0.184,0.145

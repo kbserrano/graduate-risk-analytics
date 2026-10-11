@@ -1,0 +1,7 @@
+,model_a,model_b,statistic,p_value,significant
+1,A1_RandomForest_ClassWeighted,B2_OneClassSVM,265.0,0.0002,True
+2,A1_RandomForest_ClassWeighted,B3_LocalOutlierFactor,303.0,0.001,True
+0,A1_RandomForest_ClassWeighted,B1_IsolationForest,328.0,0.0024,True
+5,B2_OneClassSVM,B3_LocalOutlierFactor,432.0,0.0472,False
+3,B1_IsolationForest,B2_OneClassSVM,490.0,0.1571,False
+4,B1_IsolationForest,B3_LocalOutlierFactor,528.0,0.4006,False

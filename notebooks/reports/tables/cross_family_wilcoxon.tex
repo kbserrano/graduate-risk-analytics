@@ -1,0 +1,13 @@
+\begin{table}[htbp]
+\caption{Cross-family pairwise Wilcoxon comparisons only (classification vs. anomaly-detection models), Bonferroni-corrected.}
+\label{tab:cross_family_wilcoxon}
+\begin{tabular}{lllrr}
+\toprule
+ & model\_a & model\_b & p\_value & significant \\
+\midrule
+1 & A1\_RandomForest\_ClassWeighted & B2\_OneClassSVM & 0.000 & True \\
+2 & A1\_RandomForest\_ClassWeighted & B3\_LocalOutlierFactor & 0.001 & True \\
+0 & A1\_RandomForest\_ClassWeighted & B1\_IsolationForest & 0.002 & True \\
+\bottomrule
+\end{tabular}
+\end{table}

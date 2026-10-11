@@ -1,0 +1,24 @@
+# Environments and secrets
+.venv/
+venv/
+.env
+.env.*
+
+# OS / tooling
+.DS_Store
+__pycache__/
+.ipynb_checkpoints/
+
+# Survey data is never published (see README "Data and privacy")
+data/raw/*
+data/processed/*
+data/external/*
+!data/*/.gitkeep
+
+# Regenerable artifacts
+*.pkl
+reports/*.html
+reports/notebooks/
+
+# AI assistant artifacts
+context-snapshot.json
