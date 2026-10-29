@@ -11,11 +11,8 @@ each handling the ~80/20 imbalance a different way.
     A3 — SMOTE oversampling + Random Forest    (requires imbalanced-learn)
     A4 — ADASYN oversampling + Random Forest   (requires imbalanced-learn)
 
-A2-A4 are written to each library's documented API but could not
-be executed in the environment this project was built in (no
-internet access to install xgboost / imbalanced-learn) — verify
-them in your own environment before trusting their numbers. A1 has
-been verified end-to-end against the real dataset.
+Plus reference baselines (build_baseline_models): a prior-only
+dummy and a class-weighted logistic regression.
 """
 
 from sklearn.compose import ColumnTransformer
@@ -198,3 +195,37 @@ def build_classification_models(
         )
 
     return models
+
+
+# ==========================================================
+# REFERENCE BASELINES
+# ==========================================================
+
+def build_baseline_models(numeric_features, nominal_features):
+    """
+    Reference models every Family A/B result should be read against:
+
+        BL1 — DummyClassifier(strategy="prior"): predicts the training
+              base rate for everyone, so its PR-AUC equals the base
+              rate (PR-AUC's chance level) and its ROC-AUC is 0.5.
+        BL2 — class-weighted L2 logistic regression on the same
+              features/preprocessing: the simple, interpretable model
+              the Random Forest / resampling variants need to beat to
+              justify their added complexity.
+
+    Kept out of build_classification_models() so they never compete
+    for "best Family A model" or enter the Family A vs. B tests.
+    """
+
+    from sklearn.dummy import DummyClassifier
+    from sklearn.linear_model import LogisticRegression
+
+    return {
+        "BL1_Dummy_Prior": DummyClassifier(strategy="prior"),
+        "BL2_LogReg_Balanced": Pipeline([
+            ("preprocess", build_preprocessor(numeric_features, nominal_features)),
+            ("classifier", LogisticRegression(
+                class_weight="balanced", max_iter=2000
+            ))
+        ])
+    }

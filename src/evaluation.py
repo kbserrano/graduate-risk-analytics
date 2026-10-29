@@ -24,6 +24,7 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     average_precision_score,
+    roc_auc_score,
     precision_recall_curve,
     make_scorer,
     ConfusionMatrixDisplay,
@@ -62,12 +63,28 @@ def pr_auc_scorer(estimator, X, y_true):
     return average_precision_score(y_true, y_score, pos_label=POS_LABEL)
 
 
+def roc_auc_scorer(estimator, X, y_true):
+    """
+    ROC-AUC with POS_LABEL scored as the positive class. Reported
+    alongside PR-AUC because PR-AUC's chance level is the base rate
+    (~0.20 here), so a PR-AUC modestly above 0.20 can hide a model
+    whose overall ranking is no better than chance (ROC-AUC ~0.5).
+    """
+
+    y_proba = estimator.predict_proba(X)
+    class_index = list(estimator.classes_).index(POS_LABEL)
+    y_score = y_proba[:, class_index]
+
+    return roc_auc_score((np.asarray(y_true) == POS_LABEL).astype(int), y_score)
+
+
 SCORING = {
     "accuracy": "accuracy",
     "precision": make_scorer(precision_score, pos_label=POS_LABEL, zero_division=0),
     "recall": make_scorer(recall_score, pos_label=POS_LABEL, zero_division=0),
     "f1": make_scorer(f1_score, pos_label=POS_LABEL, zero_division=0),
-    "pr_auc": pr_auc_scorer
+    "pr_auc": pr_auc_scorer,
+    "roc_auc": roc_auc_scorer
 }
 
 
@@ -133,7 +150,9 @@ def compare_models(models, X, y, n_splits=N_SPLITS, n_repeats=N_REPEATS,
             sorted by PR-AUC descending, plus pr_auc_ci_low/
             pr_auc_ci_high (bootstrap 95% CI on the mean PR-AUC —
             report this alongside the point estimate, not just
-            mean +/- std, given the small sample here).
+            mean +/- std, given the small sample here), the
+            Nadeau-Bengio corrected CI, and base_rate (the share of
+            POS_LABEL in y — PR-AUC's chance level).
         raw_scores — dict of {model_name: array of per-fold PR-AUC
             scores}, for feeding into the statistical tests below.
     """
@@ -159,6 +178,7 @@ def compare_models(models, X, y, n_splits=N_SPLITS, n_repeats=N_REPEATS,
         corr_low, corr_high = corrected_ci(pr_auc_scores, n_train, n_test, ci=ci)
         row["pr_auc_corrected_ci_low"] = corr_low
         row["pr_auc_corrected_ci_high"] = corr_high
+        row["base_rate"] = (np.asarray(y) == POS_LABEL).mean()
 
         rows[name] = row
         raw_scores[name] = pr_auc_scores
@@ -167,7 +187,7 @@ def compare_models(models, X, y, n_splits=N_SPLITS, n_repeats=N_REPEATS,
     ordered_cols = (
         list(SCORING.keys()) + [f"{m}_std" for m in SCORING]
         + ["pr_auc_ci_low", "pr_auc_ci_high",
-           "pr_auc_corrected_ci_low", "pr_auc_corrected_ci_high"]
+           "pr_auc_corrected_ci_low", "pr_auc_corrected_ci_high", "base_rate"]
     )
 
     summary_table = results[ordered_cols].sort_values("pr_auc", ascending=False)
@@ -492,6 +512,8 @@ def evaluate_on_holdout(model, X_test, y_test, threshold=0.5):
         "recall": recall_score(y_test, y_pred, pos_label=POS_LABEL, zero_division=0),
         "f1": f1_score(y_test, y_pred, pos_label=POS_LABEL, zero_division=0),
         "pr_auc": average_precision_score(y_test, y_score, pos_label=POS_LABEL),
+        "roc_auc": roc_auc_score((np.asarray(y_test) == POS_LABEL).astype(int), y_score),
+        "base_rate": (np.asarray(y_test) == POS_LABEL).mean(),
         "threshold_used": threshold
     }
 
