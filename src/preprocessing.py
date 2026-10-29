@@ -8,7 +8,44 @@ Institute of Education Tracer Study (2023-2025 graduates).
 Public entry point: preprocess(df_raw) -> pd.DataFrame
 """
 
+import hashlib
+import warnings
+from pathlib import Path
+
 import pandas as pd
+
+
+# ==========================================================
+# RAW DATA PROVENANCE
+# ==========================================================
+
+# SHA-256 of the raw export every committed result was produced from.
+# This file is NOT the untouched survey export: one respondent's birth
+# year was corrected by hand in the spreadsheet (2009 -> 2001, a data
+# entry error giving an implausible age of ~14-16) before this
+# checksum was taken. The original export isn't available in this
+# project, so the correction can't be re-applied in code; if it turns
+# up, keep it untouched, apply the fix in create_age(), and update
+# this checksum.
+RAW_DATA_SHA256 = "1f67cf25ffed56bc31f0e53bbd6f4e489837517266beafcf05c664b5fe361291"
+
+
+def verify_raw_data(path, expected=RAW_DATA_SHA256):
+    """Warn if the raw file differs from the one the committed results
+    were produced from (e.g. a different export or further hand edits).
+    Returns True when it matches."""
+
+    digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+    if digest != expected:
+        warnings.warn(
+            f"{path} does not match RAW_DATA_SHA256 — results may not "
+            f"reproduce the committed outputs (got {digest[:12]}...).",
+            stacklevel=2
+        )
+        return False
+
+    return True
 
 
 # ==========================================================
