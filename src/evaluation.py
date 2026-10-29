@@ -31,6 +31,7 @@ from sklearn.metrics import (
 )
 
 from scipy.stats import friedmanchisquare, wilcoxon
+from scipy.stats import t as t_dist
 
 from src.feature_engineering import POS_LABEL
 from src.reporting import save_figure
@@ -101,6 +102,11 @@ def bootstrap_ci(scores, n_boot=N_BOOT, ci=0.95, random_state=RANDOM_STATE):
     This is a CI on the CV estimate itself (uncertainty from having
     only ~157 cases / a finite number of folds) — not a claim about
     a single point estimate's precision beyond what the data support.
+
+    Caveat: resampling fold scores as if they were independent
+    ignores the overlap between CV training sets, so this interval
+    is too narrow. Prefer corrected_ci(); this is kept for
+    comparison.
     """
 
     rng = np.random.RandomState(random_state)
@@ -134,6 +140,7 @@ def compare_models(models, X, y, n_splits=N_SPLITS, n_repeats=N_REPEATS,
 
     rows = {}
     raw_scores = {}
+    n_train, n_test = cv_split_sizes(len(y), n_splits)
 
     for name, model in models.items():
 
@@ -149,13 +156,18 @@ def compare_models(models, X, y, n_splits=N_SPLITS, n_repeats=N_REPEATS,
         row["pr_auc_ci_low"] = ci_low
         row["pr_auc_ci_high"] = ci_high
 
+        corr_low, corr_high = corrected_ci(pr_auc_scores, n_train, n_test, ci=ci)
+        row["pr_auc_corrected_ci_low"] = corr_low
+        row["pr_auc_corrected_ci_high"] = corr_high
+
         rows[name] = row
         raw_scores[name] = pr_auc_scores
 
     results = pd.DataFrame(rows).T
     ordered_cols = (
         list(SCORING.keys()) + [f"{m}_std" for m in SCORING]
-        + ["pr_auc_ci_low", "pr_auc_ci_high"]
+        + ["pr_auc_ci_low", "pr_auc_ci_high",
+           "pr_auc_corrected_ci_low", "pr_auc_corrected_ci_high"]
     )
 
     summary_table = results[ordered_cols].sort_values("pr_auc", ascending=False)
@@ -167,7 +179,7 @@ def compare_models(models, X, y, n_splits=N_SPLITS, n_repeats=N_REPEATS,
 # STATISTICAL SIGNIFICANCE TESTING
 # ==========================================================
 
-def friedman_test(raw_scores):
+def friedman_test(raw_scores, n_splits=None):
     """
     Friedman test across all models' per-fold PR-AUC scores —
     tests whether at least one model's performance distribution
@@ -180,9 +192,18 @@ def friedman_test(raw_scores):
     repeats) for the test to be valid — compare_models() already
     guarantees this since every model runs through the same
     RepeatedStratifiedKFold split sequence.
+
+    n_splits: if given, fold scores are first averaged within each
+    CV repeat (folds arrive repeat by repeat), so the test's blocks
+    are the r repeats rather than the k x r overlapping folds.
+    Recommended — raw folds aren't independent blocks, which
+    inflates the statistic (see corrected_resampled_ttest()).
     """
 
-    arrays = list(raw_scores.values())
+    arrays = [np.asarray(s, dtype=float) for s in raw_scores.values()]
+    if n_splits is not None:
+        arrays = [s.reshape(-1, n_splits).mean(axis=1) for s in arrays]
+
     statistic, p_value = friedmanchisquare(*arrays)
 
     return {
@@ -204,6 +225,11 @@ def pairwise_wilcoxon(raw_scores, alpha=0.05, correction="bonferroni"):
     false positive by chance alone — without it, a "significant"
     pairwise result here would overstate how much confidence the
     number of comparisons actually earns.
+
+    Caveat: treats the k x r fold scores as independent pairs,
+    which they aren't (overlapping training sets), so p-values
+    are optimistic. Kept as a sensitivity check;
+    pairwise_corrected_ttest() is the primary test.
     """
 
     names = list(raw_scores.keys())
@@ -226,6 +252,101 @@ def pairwise_wilcoxon(raw_scores, alpha=0.05, correction="bonferroni"):
             rows.append({
                 "model_a": a,
                 "model_b": b,
+                "statistic": statistic,
+                "p_value": p_value,
+                "significant": p_value < corrected_alpha
+            })
+
+    return pd.DataFrame(rows).sort_values("p_value")
+
+
+# ==========================================================
+# CORRECTED RESAMPLED T-TEST (Nadeau & Bengio, 2003)
+# ==========================================================
+#
+# Repeated k-fold CV scores are NOT independent samples: every
+# repeat reuses the same rows, and any two folds' training sets
+# overlap heavily. Tests and intervals that treat the k x r fold
+# scores as i.i.d. (Wilcoxon, Friedman on raw folds, the
+# percentile bootstrap above) therefore understate the variance
+# and overstate significance. Nadeau & Bengio's correction
+# inflates the variance term from 1/k to (1/k + n_test/n_train)
+# to account for that overlap — the standard fix for comparing
+# models on repeated CV (see also Bouckaert & Frank, 2004).
+
+def _corrected_std_error(scores, n_train, n_test):
+    scores = np.asarray(scores, dtype=float)
+    k = len(scores)
+    return np.sqrt((1 / k + n_test / n_train) * scores.var(ddof=1))
+
+
+def cv_split_sizes(n_samples, n_splits=N_SPLITS):
+    """(n_train, n_test) per fold for a k-fold split of n_samples."""
+
+    n_test = n_samples / n_splits
+    return n_samples - n_test, n_test
+
+
+def corrected_ci(scores, n_train, n_test, ci=0.95):
+    """
+    t-based confidence interval for the mean of repeated-CV fold
+    scores, using the Nadeau-Bengio corrected variance. Wider
+    (and more honest) than bootstrap_ci(), which treats fold
+    scores as independent.
+    """
+
+    scores = np.asarray(scores, dtype=float)
+    se = _corrected_std_error(scores, n_train, n_test)
+    t_crit = t_dist.ppf(1 - (1 - ci) / 2, df=len(scores) - 1)
+
+    return scores.mean() - t_crit * se, scores.mean() + t_crit * se
+
+
+def corrected_resampled_ttest(scores_a, scores_b, n_train, n_test):
+    """
+    Two-sided corrected resampled paired t-test on two models'
+    fold scores (same folds, same order). Returns (t, p_value).
+    """
+
+    diff = np.asarray(scores_a, dtype=float) - np.asarray(scores_b, dtype=float)
+    se = _corrected_std_error(diff, n_train, n_test)
+
+    if se < 1e-12:
+        return 0.0, 1.0
+
+    t_stat = diff.mean() / se
+    p_value = 2 * t_dist.sf(abs(t_stat), df=len(diff) - 1)
+
+    return t_stat, p_value
+
+
+def pairwise_corrected_ttest(raw_scores, n_train, n_test, alpha=0.05,
+                              correction="bonferroni"):
+    """
+    Pairwise corrected resampled t-tests between every pair of
+    models' per-fold PR-AUC scores — the primary pairwise test
+    for this study. Same output shape as pairwise_wilcoxon(), plus
+    mean_diff (model_a minus model_b).
+    """
+
+    names = list(raw_scores.keys())
+    n_pairs = len(names) * (len(names) - 1) // 2
+    corrected_alpha = alpha / n_pairs if correction == "bonferroni" else alpha
+
+    rows = []
+
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+
+            a, b = names[i], names[j]
+            statistic, p_value = corrected_resampled_ttest(
+                raw_scores[a], raw_scores[b], n_train, n_test
+            )
+
+            rows.append({
+                "model_a": a,
+                "model_b": b,
+                "mean_diff": np.mean(raw_scores[a]) - np.mean(raw_scores[b]),
                 "statistic": statistic,
                 "p_value": p_value,
                 "significant": p_value < corrected_alpha

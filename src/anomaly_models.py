@@ -26,6 +26,7 @@ against the real dataset.
 """
 
 import numpy as np
+from scipy.special import expit
 
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.compose import ColumnTransformer
@@ -76,12 +77,22 @@ class AnomalyDetectorWrapper(BaseEstimator, ClassifierMixin):
     looks like, flag what doesn't fit at test time.
 
     Scoring: detector.decision_function() returns higher values
-    for more "normal" points. This is inverted and min-max
-    normalized per batch into a pseudo-probability for pos_label
-    (the anomalous/minority class). The normalization is purely
-    for a probability-shaped [0, 1] output — it's a monotonic
-    (rank-preserving) transform, so it does not change PR-AUC,
-    which only depends on score ordering.
+    for more "normal" points, with 0 at the detector's own
+    inlier/outlier boundary. This is inverted and passed through
+    a logistic function, scaled by the spread (std) of the
+    training rows' decision scores, into a pseudo-probability for
+    pos_label (the anomalous/minority class):
+
+        P(pos_label) = sigmoid(-decision_function(X) / scale_)
+
+    The transform is fixed at fit time, so a row's score never
+    depends on which other rows are scored alongside it — unlike
+    per-batch min-max normalization, which made thresholds tuned
+    on one batch (e.g. out-of-fold predictions) meaningless on
+    another (e.g. the holdout set). P = 0.5 corresponds to the
+    detector's native boundary, so predict() matches the
+    detector's own inlier/outlier call. It's monotonic, so PR-AUC
+    (which only depends on score ordering) is unaffected.
     """
 
     def __init__(self, detector, pos_label=0):
@@ -98,6 +109,10 @@ class AnomalyDetectorWrapper(BaseEstimator, ClassifierMixin):
         self.fitted_detector_ = clone(self.detector)
         self.fitted_detector_.fit(X[normal_mask])
 
+        train_scores = self.fitted_detector_.decision_function(X[normal_mask])
+        scale = np.std(train_scores)
+        self.scale_ = scale if scale > 1e-12 else 1.0
+
         return self
 
     def decision_function(self, X):
@@ -107,16 +122,7 @@ class AnomalyDetectorWrapper(BaseEstimator, ClassifierMixin):
 
         raw_scores = self.decision_function(X)
 
-        anomaly_score = -raw_scores
-
-        score_range = anomaly_score.max() - anomaly_score.min()
-
-        if score_range < 1e-12:
-            normalized = np.zeros_like(anomaly_score)
-        else:
-            normalized = (
-                (anomaly_score - anomaly_score.min()) / score_range
-            )
+        normalized = expit(-raw_scores / self.scale_)
 
         pos_index = list(self.classes_).index(self.pos_label)
 
