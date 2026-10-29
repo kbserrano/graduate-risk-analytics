@@ -1,5 +1,5 @@
-scenario,cross_pairs_favouring_A,cross_pairs_significant,min_cross_p,best_A,best_A_minus_LogReg,best_A_vs_LogReg_p
-"reference (primary target, all features)",5,0,0.5996104884036442,A1_RandomForest_ClassWeighted,-0.06614817512112242,0.283751546133531
-labour-force target,9,0,0.6119024653125932,A3_SMOTE_RandomForest,-0.002999163642660563,0.9705192208823125
-occasional work = employed,2,0,0.2476579629297254,A3_SMOTE_RandomForest,-0.0400841528313155,0.4949854634998019
-pre-outcome features only,2,0,0.4765616933442652,A4_ADASYN_RandomForest,-0.12750815215256261,0.04878234343388625
+scenario,cross_pairs_favouring_A,cross_pairs_significant,min_cross_p,best_A,best_A_minus_LogReg,best_A_vs_LogReg_p,LogReg_minus_Dummy,LogReg_vs_Dummy_p
+"reference (primary target, all features)",5,0,0.5996104884036442,A1_RandomForest_ClassWeighted,-0.06614817512112242,0.283751546133531,0.16930040705665153,0.009386111139310803
+labour-force target,9,0,0.6119024653125932,A3_SMOTE_RandomForest,-0.002999163642660563,0.9705192208823125,0.1603480927744317,0.020941154222819447
+occasional work = employed,2,0,0.2476579629297254,A3_SMOTE_RandomForest,-0.0400841528313155,0.4949854634998019,0.12931409824219356,0.02314381128552924
+pre-outcome features only,2,0,0.4765616933442652,A4_ADASYN_RandomForest,-0.12750815215256261,0.04878234343388625,0.19723786275021601,0.004472538921854509

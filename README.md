@@ -13,10 +13,11 @@ study dataset:
 - **Family B — Anomaly Detection**: learns what "normal" (employed)
   graduates look like and flags deviations from that pattern.
 
-Built around **PR-AUC** as the primary metric, since ROC-AUC and accuracy
-can both look misleadingly strong on a rare-event problem like this one —
-neither is sensitive to how well a model finds the minority class
-specifically, which is the entire point here.
+Built around **PR-AUC** as the primary metric, since accuracy can look
+misleadingly strong on a rare-event problem like this one. PR-AUC is
+always read against its chance level (the base rate, ~0.20 here) and
+reported alongside ROC-AUC, which shows whether a model ranks
+unemployed graduates above employed ones any better than chance (0.5).
 
 ## Research questions this project answers
 
@@ -26,70 +27,130 @@ specifically, which is the entire point here.
 4. Which graduate characteristics are most important for identifying at-risk graduates?
 5. Are unemployed graduates better characterized as a minority class or as anomalous observations?
 
-## Headline result (see `notebooks/05_evaluation.ipynb` for full detail)
+## Headline result
 
-Based on a reduced, leakage-checked feature set — see
-["Feature set" below](#feature-set-reduced-and-leakage-checked) for why.
-All four Family A models (A1–A4) have now been executed against the real
-dataset with `xgboost`/`imbalanced-learn` installed.
+**With 157 graduates (31 unemployed), unemployment is only weakly
+predictable from these survey variables. A plain class-weighted logistic
+regression is the most accurate and most stable model. Neither the
+imbalance-aware classifiers (Family A) nor the anomaly detectors
+(Family B) reliably beat it, and the two families can't be separated
+from each other.** An earlier version of this README reported Family A as
+clearly ahead; that result came from one favourable train/test split
+(details below).
 
-| Model | Family | PR-AUC (mean ± std) | 95% corrected CI |
-|---|---|---|---|
-| A4 — ADASYN + Random Forest | Classification | **0.440 ± 0.114** | [0.319, 0.560] |
-| A3 — SMOTE + Random Forest | Classification | 0.432 ± 0.114 | [0.312, 0.552] |
-| A1 — Random Forest, class-weighted | Classification | 0.426 ± 0.126 | [0.293, 0.558] |
-| A2 — XGBoost, scale_pos_weight | Classification | 0.386 ± 0.136 | [0.243, 0.529] |
-| B3 — Local Outlier Factor | Anomaly Detection | 0.302 ± 0.117 | [0.179, 0.426] |
-| B1 — Isolation Forest | Anomaly Detection | 0.287 ± 0.103 | [0.178, 0.395] |
-| B2 — One-Class SVM | Anomaly Detection | 0.264 ± 0.100 | [0.158, 0.370] |
+All numbers: repeated stratified 5-fold CV (10 repeats), 95% CIs using the
+Nadeau–Bengio corrected variance (see "Methodology notes").
 
-Repeated Stratified 5-Fold CV (10 repeats) on the 125-row training
-split. CIs use the Nadeau–Bengio corrected variance, because the 50
-fold scores come from heavily overlapping training sets and are not
-independent (see "Methodology notes").
+### Main comparison (all 157 rows — `notebooks/07_robustness.ipynb`)
 
-- **Every Family A model has a higher mean PR-AUC than every Family B
-  model**, and all 12 cross-family differences favor Family A (+0.08 to
-  +0.18).
-- **None of those differences is statistically significant.** Pairwise
-  corrected resampled t-tests (Bonferroni across 21 pairs,
-  α=0.05/21=0.00238) find no significant pair; the smallest p-value is
-  0.034 (A4 vs. B2), and most cross-family pairs have p > 0.05 even
-  before correction. The Friedman test is significant (per-repeat
-  blocks: χ²=51.69, p=2.2×10⁻⁹), but it can't say which models differ.
-- An earlier version of this README reported A1, A3 and A4 as
-  significantly beating every Family B model (Wilcoxon, p≤0.00004).
-  That test treated the 50 overlapping folds as independent samples and
-  overstated significance; it is still saved
-  (`reports/tables/pairwise_wilcoxon.csv`) as a sensitivity check only.
-- **The 32-row holdout disagrees with CV.** On it (6 unemployed), A4
-  scores PR-AUC 0.171 — below the 0.1875 base rate — while B3 scores
-  0.289. With 6 positives this is mostly noise, but it's another sign the
-  ranking is not settled.
+| Model | Family | PR-AUC | 95% corrected CI | ROC-AUC |
+|---|---|---|---|---|
+| Logistic regression, class-weighted | Baseline | **0.367** | [0.242, 0.492] | **0.646** |
+| B3 — Local Outlier Factor | Anomaly detection | 0.301 | [0.185, 0.418] | 0.512 |
+| A1 — Random Forest, class-weighted | Classification | 0.301 | [0.192, 0.409] | 0.547 |
+| A4 — ADASYN + Random Forest | Classification | 0.298 | [0.179, 0.417] | 0.542 |
+| B1 — Isolation Forest | Anomaly detection | 0.297 | [0.203, 0.392] | 0.548 |
+| A3 — SMOTE + Random Forest | Classification | 0.295 | [0.190, 0.400] | 0.539 |
+| B2 — One-Class SVM | Anomaly detection | 0.267 | [0.165, 0.370] | 0.460 |
+| A2 — XGBoost, scale_pos_weight | Classification | 0.266 | [0.182, 0.351] | 0.487 |
+| Prior-only dummy (chance level) | Baseline | 0.197 | — | 0.500 |
 
-**Nested cross-validation (A1 only):** outer 5-fold × 3-repeat CV, inner
-3-fold grid search over `n_estimators`/`max_depth`, gave **PR-AUC = 0.315
-± 0.117**, vs. 0.426 for A1 above. A1 in the simple setup uses Random
-Forest defaults (no tuning), so the gap isn't tuning leakage; it more
-likely reflects the different data (all 157 rows vs. the 125-row training
-split), fold layout, and noisy inner-fold tuning with ~4 minority cases
-per inner fold. That run isn't captured in a notebook, and its saved CI
-([0.259, 0.376]) is a percentile bootstrap, so it is too narrow for the
-same reason as above.
+- **Logistic regression beats chance** (vs. the dummy: +0.17 PR-AUC,
+  p=0.009), so there is a real but modest signal.
+- **No study model is significantly better than logistic regression**, and
+  every one has a lower mean PR-AUC. The seven study models' ROC-AUCs
+  (0.46–0.55) are close to chance.
+- **Family A vs. Family B: no difference.** Only 5 of the 12 cross-family
+  pairs favour Family A, and none is significant (corrected resampled
+  t-test, Bonferroni across 21 pairs; smallest p = 0.60).
 
-**Answering RQ3 and RQ5**: imbalance-aware classification has the higher
-PR-AUC on this dataset, consistently across all model pairs, so the
-evidence *leans toward* treating unemployed graduates as a minority class
-to classify rather than as anomalies. At n=157 with 31 unemployed cases,
-though, the difference is not statistically reliable once the dependence
-between CV folds is accounted for — the study can report a consistent
-direction, not a demonstrated advantage.
+### Why this differs from the earlier headline
 
-**What's still open**: a nested, notebook-captured evaluation of all
-seven models, ideally on the full dataset rather than the 125-row
-training split, would give the most defensible comparison. More data
-(e.g. additional tracer-study batches) is the only thing likely to make
-the Family A vs. Family B difference significant.
+Notebooks 03–05 follow the original design: cross-validate on one
+125-row training split (`random_state=42`) and score the remaining 32
+rows once. On that split Family A looks best (A4 PR-AUC 0.440 vs. 0.385
+for logistic regression and 0.264–0.302 for Family B). Repeating the
+same protocol with four other split seeds (`07_robustness.ipynb`,
+"Split sensitivity") shows that split is the exception:
+
+| Training split seed | 42 (original) | 0 | 1 | 2 | 3 |
+|---|---|---|---|---|---|
+| Best model (CV PR-AUC) | A4 | LogReg | LogReg | LogReg | B3 |
+| Family A mean | 0.421 | 0.344 | 0.306 | 0.273 | 0.253 |
+| Family B mean | 0.288 | 0.319 | 0.265 | 0.284 | 0.304 |
+| Logistic regression | 0.385 | 0.410 | 0.345 | 0.339 | 0.334 |
+
+Seed 42 is the only split on which any Family A model beats logistic
+regression. Even there no difference is significant: no pair of the seven
+study models (smallest p = 0.034, Bonferroni α = 0.00238) and no study
+model vs. logistic regression (`reports/tables/vs_baseline_tests.csv`).
+The 32-row holdout (6 unemployed graduates) is too small to settle
+anything: A4's holdout PR-AUC ranges from 0.17 to 0.37 across the five
+splits, and on seed 42 it is 0.171, below the 0.19 base rate.
+
+### Robustness checks (`notebooks/07_robustness.ipynb`)
+
+| Scenario | n (unemployed) | Base rate | Logistic regression | Best Family A | Best Family B |
+|---|---|---|---|---|---|
+| Primary target, all features | 157 (31) | 0.197 | **0.367** | 0.301 (A1) | 0.301 (B3) |
+| Labour-force target¹ | 145 (19) | 0.131 | **0.291** | 0.288 (A3) | 0.263 (B3) |
+| Occasional work = employed | 157 (26) | 0.166 | **0.295** | 0.255 (A3) | 0.281 (B1) |
+| Pre-outcome features only² | 157 (31) | 0.197 | **0.395** | 0.267 (A4) | 0.298 (B2) |
+
+¹ Unemployed = not employed *and* searching; respondents not looking for
+work (homemakers, further study, not searching) are excluded instead of
+being counted as unemployed. ² Program, study hours, internship,
+working student, sex, age — no retrospective survey indices.
+
+- No scenario produces a significant Family A vs. Family B difference.
+- Logistic regression has the highest PR-AUC in every scenario and beats
+  the dummy in every scenario (p = 0.004–0.023).
+- Logistic regression does *best* without the retrospective indices
+  (0.395), so they add nothing measurable.
+
+**Graduation cohort.** Unemployment differs sharply by cohort: 26% (2023,
+16/61), 4% (2024, 2/54), 31% (2025, 13/42). A model that knows only the
+cohort reaches PR-AUC 0.278, as good as most study models. Training on
+two cohorts and testing on the third, logistic regression reaches ROC-AUC
+0.60 / 0.69 / 0.75 (2023 / 2024 / 2025), while the Random Forests are
+near 0.5 on 2023 and 2024. Cohorts may have been surveyed at different
+times after graduation; until that is documented, cohort differences are
+a possible confound (see "Limitations").
+
+### Answers to the research questions
+
+- **RQ1 (Family A):** the imbalance-aware classifiers detect unemployed
+  graduates only slightly better than chance (PR-AUC 0.27–0.30 vs. 0.20;
+  ROC-AUC 0.49–0.55) and do not improve on logistic regression.
+- **RQ2 (Family B):** the anomaly detectors perform about the same as
+  Family A by PR-AUC (0.27–0.30) and near or below chance by ROC-AUC
+  (0.46–0.55).
+- **RQ3 (highest PR-AUC):** logistic regression, in every scenario. Among
+  the seven study models, the ranking changes with the data split, and no
+  pair differs significantly.
+- **RQ4 (important characteristics):** not yet answerable reliably — see
+  `06_explainability.ipynb` caveats. Working while studying is the one
+  feature with a large raw difference (5% unemployment among working
+  students vs. 28% among others).
+- **RQ5 (minority class or anomalies?):** the data don't distinguish the
+  two framings. Anomaly detection is not better, but neither is
+  imbalance-aware classification; the simplest supervised model does best.
+
+### Limitations
+
+- **Small sample:** 157 respondents, 31 unemployed (19 under the
+  labour-force definition); about 2 unemployed cases per predictor in
+  each training fold.
+- **Outcome definition:** current status at survey time, not time to
+  first job; the primary target mixes job-seekers with people not in the
+  labour force (sensitivity results above).
+- **Cohort and survey timing:** see above.
+- **Single institution and programs; response rate unknown**, so results
+  may not generalize beyond these respondents.
+- **Nested cross-validation** has only been run once for A1 (PR-AUC
+  0.315 ± 0.117, `reports/tables/family_a_nested_cv_summary.csv`); that
+  run is not captured in a notebook and its CI is an uncorrected
+  bootstrap.
 
 ## Feature set (reduced and leakage-checked)
 
@@ -103,7 +164,7 @@ which risks target leakage: an employed graduate rating their own
 "employability" or whether they'd choose the program again in hindsight
 is confounded with the outcome, not a genuine pre-outcome predictor of it.
 
-Modeling now uses an 11-variable, theory-driven, pre-outcome set:
+Modeling now uses an 11-variable, theory-driven set:
 `program`, `study_hours`, `internship`, `working_student`, `sex`, `age`,
 `school_choice_index`, `learning_experience_index`,
 `study_conditions_index`, `guidance_support_index`, `competency_index`
@@ -111,6 +172,17 @@ Modeling now uses an 11-variable, theory-driven, pre-outcome set:
 leakage-risk indices are still computed (`CONSTRUCTS`/`COMPOSITE_VARS`)
 for descriptive/EDA use, just excluded from the modeling feature set —
 `LEAKAGE_RISK_VARS` in the same file documents which and why.
+
+The five remaining composite indices are also rated retrospectively in
+the same survey, so they carry the same risk in weaker form.
+`PRE_OUTCOME_FEATURES` (program, study hours, internship, working
+student, sex, age) drops them all; `07_robustness.ipynb` shows that
+logistic regression does slightly *better* on that set (PR-AUC 0.395
+vs. 0.367), so the indices add no measurable predictive value.
+
+Even 11 variables leave only about 2 unemployed cases per predictor in
+each training fold (31 cases, 14 encoded columns), well short of the
+10–20:1 guideline — another reason to prefer a simple, regularized model.
 
 ## Project structure
 
@@ -126,14 +198,16 @@ graduate-risk-analytics/
 │   ├── 03_imbalance_classification.ipynb
 │   ├── 04_anomaly_detection.ipynb
 │   ├── 05_evaluation.ipynb
-│   └── 06_explainability.ipynb
+│   ├── 06_explainability.ipynb
+│   └── 07_robustness.ipynb
 ├── src/
 │   ├── preprocessing.py        # column mapping, cleaning, encoding
 │   ├── feature_engineering.py  # target construction, composite indices
-│   ├── classification_models.py # Family A (A1-A4)
+│   ├── classification_models.py # Family A (A1-A4) + reference baselines
 │   ├── anomaly_models.py        # Family B (B1-B3) + AnomalyDetectorWrapper
 │   ├── evaluation.py            # CV framework, PR-AUC scoring, stats tests
 │   ├── explainability.py        # permutation importance, SHAP
+│   ├── robustness.py            # model builders + leave-one-group-out for 07
 │   └── reporting.py             # saves figures/tables to reports/ (cwd-independent)
 ├── reports/
 │   ├── figures/          # PNG figures saved by the notebooks
@@ -142,6 +216,7 @@ graduate-risk-analytics/
 ├── tests/
 │   ├── test_pipeline.py
 │   ├── test_corrections.py
+│   ├── test_stage1.py
 │   └── test_reporting.py
 ├── requirements.txt
 ├── README.md
@@ -175,8 +250,9 @@ notebook's output (`data/processed/tracer_study_processed.csv` after
 2. `02_preprocessing.ipynb` — produces `data/processed/tracer_study_processed.csv`.
 3. `03_imbalance_classification.ipynb` — produces `reports/tables/family_a_*` and `reports/figures/family_a_*`.
 4. `04_anomaly_detection.ipynb` — produces `reports/tables/family_b_*` and `reports/figures/family_b_*`.
-5. `05_evaluation.ipynb` — combines both, runs statistical tests.
-6. `06_explainability.ipynb` — permutation importance / SHAP on the winning model.
+5. `05_evaluation.ipynb` — combines both with the baselines, runs statistical tests.
+6. `06_explainability.ipynb` — permutation importance / SHAP for A1 (not yet updated to the findings above).
+7. `07_robustness.ipynb` — all models on the full dataset, alternative outcome definitions, pre-outcome features, cohort checks, and split sensitivity. Source of the headline numbers.
 
 Every figure and table under `reports/` is written by these notebooks via
 `src/reporting.py`, except `reports/tables/family_a_nested_cv_summary.csv`,
@@ -195,6 +271,15 @@ you deliberately choose to version a fixed snapshot for reproducibility.
 
 ## Methodology notes worth knowing before extending this project
 
+- **Every model is read against two baselines** (`build_baseline_models()`
+  in `src/classification_models.py`): a prior-only dummy (PR-AUC = base
+  rate, ROC-AUC = 0.5) and a class-weighted logistic regression. They are
+  kept out of Family A so they never become "best Family A model" or enter
+  the Family A vs. B tests.
+- **Results should come from the full dataset, not one split.** With
+  n=157 the 80/20 split in notebooks 03–05 changes the ranking depending on
+  the seed (see "Why this differs from the earlier headline"); notebook
+  07's full-data CV is the more reliable comparison.
 - **PR-AUC targets the minority class explicitly** (`POS_LABEL = 0`,
   "Unemployed") throughout `src/evaluation.py` — sklearn's default
   scoring conventions target label `1`, which would silently measure how
