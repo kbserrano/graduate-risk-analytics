@@ -33,61 +33,63 @@ Based on a reduced, leakage-checked feature set — see
 All four Family A models (A1–A4) have now been executed against the real
 dataset with `xgboost`/`imbalanced-learn` installed.
 
-| Model | Family | PR-AUC (mean ± std) | 95% bootstrap CI |
+| Model | Family | PR-AUC (mean ± std) | 95% corrected CI |
 |---|---|---|---|
-| A4 — ADASYN + Random Forest | Classification | **0.440 ± 0.114** | [0.408, 0.471] |
-| A3 — SMOTE + Random Forest | Classification | 0.432 ± 0.114 | [0.401, 0.464] |
-| A1 — Random Forest, class-weighted | Classification | 0.426 ± 0.126 | [0.392, 0.461] |
-| A2 — XGBoost, scale_pos_weight | Classification | 0.386 ± 0.136 | [0.350, 0.426] |
-| B3 — Local Outlier Factor | Anomaly Detection | 0.302 ± 0.117 | [0.271, 0.335] |
-| B1 — Isolation Forest | Anomaly Detection | 0.287 ± 0.103 | [0.259, 0.316] |
-| B2 — One-Class SVM | Anomaly Detection | 0.264 ± 0.100 | [0.237, 0.292] |
+| A4 — ADASYN + Random Forest | Classification | **0.440 ± 0.114** | [0.319, 0.560] |
+| A3 — SMOTE + Random Forest | Classification | 0.432 ± 0.114 | [0.312, 0.552] |
+| A1 — Random Forest, class-weighted | Classification | 0.426 ± 0.126 | [0.293, 0.558] |
+| A2 — XGBoost, scale_pos_weight | Classification | 0.386 ± 0.136 | [0.243, 0.529] |
+| B3 — Local Outlier Factor | Anomaly Detection | 0.302 ± 0.117 | [0.179, 0.426] |
+| B1 — Isolation Forest | Anomaly Detection | 0.287 ± 0.103 | [0.178, 0.395] |
+| B2 — One-Class SVM | Anomaly Detection | 0.264 ± 0.100 | [0.158, 0.370] |
 
-Repeated Stratified 5-Fold CV (10 repeats). A Friedman test across all
-**seven** models' fold-level PR-AUC scores is significant (χ²=94.96,
-p=2.8×10⁻¹⁸). Pairwise Wilcoxon signed-rank tests (Bonferroni-corrected
-across all 21 pairs, α=0.05/21=0.00238) show:
-- **A1, A3, and A4 each significantly beat all three Family B models**
-  (p≤0.00004 in every case).
-- **A2 significantly beats B1 and B2** (p≤0.00085), but **not B3**
-  (p=0.00967 — below the uncorrected 0.05 but above the Bonferroni-corrected
-  threshold, so not significant after correction for 21 comparisons).
-- No pair *within* either family differs significantly (A1 vs A2 vs A3 vs
-  A4 are statistically indistinguishable from each other, and likewise for
-  B1 vs B2 vs B3).
+Repeated Stratified 5-Fold CV (10 repeats) on the 125-row training
+split. CIs use the Nadeau–Bengio corrected variance, because the 50
+fold scores come from heavily overlapping training sets and are not
+independent (see "Methodology notes").
 
-**Nested cross-validation (A1 only, honest estimate with hyperparameter
-tuning folded in):** outer 5-fold × 3-repeat CV (15 outer folds), inner
-3-fold grid search over `n_estimators`/`max_depth`, gives **PR-AUC = 0.315
-± 0.117 (95% CI: [0.259, 0.376])** — lower than A1's 0.426 simple-CV figure
-above, because that number still benefits from picking one fixed
-hyperparameter set ahead of time using knowledge of the whole training
-set. The gap between 0.426 and 0.315 is itself a useful result: a concrete
-illustration of how much a single train/CV setup can overstate performance
-on a dataset this size. 0.315 is the more defensible number to lead with
-for A1 specifically; the same nested procedure hasn't yet been run for
-A2–A4, so their 0.386–0.440 figures likely overstate their honest
-generalization performance by a similar amount — extending nested CV to
-all four is the natural next step (see below). Either way, A1's honest
-estimate (0.315) still clears every Family B model's simple-CV estimate
-(0.264–0.302).
+- **Every Family A model has a higher mean PR-AUC than every Family B
+  model**, and all 12 cross-family differences favor Family A (+0.08 to
+  +0.18).
+- **None of those differences is statistically significant.** Pairwise
+  corrected resampled t-tests (Bonferroni across 21 pairs,
+  α=0.05/21=0.00238) find no significant pair; the smallest p-value is
+  0.034 (A4 vs. B2), and most cross-family pairs have p > 0.05 even
+  before correction. The Friedman test is significant (per-repeat
+  blocks: χ²=51.69, p=2.2×10⁻⁹), but it can't say which models differ.
+- An earlier version of this README reported A1, A3 and A4 as
+  significantly beating every Family B model (Wilcoxon, p≤0.00004).
+  That test treated the 50 overlapping folds as independent samples and
+  overstated significance; it is still saved
+  (`reports/tables/pairwise_wilcoxon.csv`) as a sensitivity check only.
+- **The 32-row holdout disagrees with CV.** On it (6 unemployed), A4
+  scores PR-AUC 0.171 — below the 0.1875 base rate — while B3 scores
+  0.289. With 6 positives this is mostly noise, but it's another sign the
+  ranking is not settled.
 
-**Answering RQ3 and RQ5**: imbalance-aware classification outperforms
-anomaly detection on this dataset — three of four classification models
-(A1, A3, A4) significantly beat every anomaly-detection model, and the
-fourth (A2) significantly beats two of three and directionally beats the
-third. Unemployed graduates are better characterized as a minority class
-to be directly classified than as anomalous observations to be detected
-against a learned "normal" pattern. This conclusion is now based on the
-full seven-model comparison, not a provisional A1-only subset.
+**Nested cross-validation (A1 only):** outer 5-fold × 3-repeat CV, inner
+3-fold grid search over `n_estimators`/`max_depth`, gave **PR-AUC = 0.315
+± 0.117**, vs. 0.426 for A1 above. A1 in the simple setup uses Random
+Forest defaults (no tuning), so the gap isn't tuning leakage; it more
+likely reflects the different data (all 157 rows vs. the 125-row training
+split), fold layout, and noisy inner-fold tuning with ~4 minority cases
+per inner fold. That run isn't captured in a notebook, and its saved CI
+([0.259, 0.376]) is a percentile bootstrap, so it is too narrow for the
+same reason as above.
 
-**What's still open**: nested cross-validation (the honest,
-tuning-leakage-free estimate) has only been run for A1. Extending it to
-A2–A4 would give a fully honest ranking within Family A — plausible given
-A1's own 0.426→0.315 shrinkage that A4's simple-CV lead over A1 (0.440 vs
-0.426) narrows or reverses under nested CV, though this cannot change the
-Family A vs. Family B conclusion above, since even A1's most conservative
-(nested-CV) estimate already clears every Family B model.
+**Answering RQ3 and RQ5**: imbalance-aware classification has the higher
+PR-AUC on this dataset, consistently across all model pairs, so the
+evidence *leans toward* treating unemployed graduates as a minority class
+to classify rather than as anomalies. At n=157 with 31 unemployed cases,
+though, the difference is not statistically reliable once the dependence
+between CV folds is accounted for — the study can report a consistent
+direction, not a demonstrated advantage.
+
+**What's still open**: a nested, notebook-captured evaluation of all
+seven models, ideally on the full dataset rather than the 125-row
+training split, would give the most defensible comparison. More data
+(e.g. additional tracer-study batches) is the only thing likely to make
+the Family A vs. Family B difference significant.
 
 ## Feature set (reduced and leakage-checked)
 
@@ -139,6 +141,7 @@ graduate-risk-analytics/
 │   └── manuscript/        # thesis writing lives here
 ├── tests/
 │   ├── test_pipeline.py
+│   ├── test_corrections.py
 │   └── test_reporting.py
 ├── requirements.txt
 ├── README.md
@@ -200,21 +203,36 @@ you deliberately choose to version a fixed snapshot for reproducibility.
   (`AnomalyDetectorWrapper`), per the standard anomaly-detection
   convention — they never see labeled minority-class examples during
   fitting, unlike Family A.
+- **Anomaly scores are mapped to probabilities with a transform fixed at
+  fit time** — `sigmoid(-decision_function / scale_)`, where `scale_` is
+  the spread of the training rows' scores. A row's score never depends on
+  which other rows are scored with it, so a threshold tuned on
+  out-of-fold predictions means the same thing on the holdout set, and
+  P=0.5 sits at the detector's own inlier/outlier boundary. (An earlier
+  version min-max normalized each batch separately, which left PR-AUC
+  unchanged but made Family B's precision/recall/F1 and tuned thresholds
+  depend on batch composition.)
 - **Decision thresholds are tuned on out-of-fold CV predictions**, never
   on the holdout test set — using holdout performance to pick a threshold
   (or a model) would make the "held-out" set no longer truly held out.
-- **Statistical significance uses Bonferroni-corrected pairwise Wilcoxon
-  tests**, not raw p-values — with 6 pairwise comparisons among 4 models,
-  an uncorrected 0.05 threshold would overstate confidence.
+- **Statistical significance uses the corrected resampled t-test**
+  (Nadeau & Bengio, 2003; `pairwise_corrected_ttest()` in
+  `src/evaluation.py`), Bonferroni-corrected across all 21 pairs.
+  Repeated-CV folds share most of their training rows, so tests that
+  treat the 50 fold scores as independent (Wilcoxon, Friedman on raw
+  folds) understate variance and overstate significance; the correction
+  inflates the variance term from `1/k` to `1/k + n_test/n_train`. The
+  Friedman test is run on per-repeat mean scores for the same reason.
 - **Sample size is small** (n=157, ~31 minority-class examples) —
   cross-validated evidence should always be weighted over any single
   holdout split's numbers, which can be noisy enough to look worse (or
   better) than the CV-level pattern for reasons that are pure small-sample
   variance, not a real effect.
-- **PR-AUC is reported with a 95% bootstrap CI alongside mean ± std**
-  (`bootstrap_ci()` in `src/evaluation.py`), not as a bare point estimate —
-  with this few folds/cases, the point estimate alone understates how much
-  uncertainty there really is.
+- **PR-AUC is reported with a 95% corrected CI alongside mean ± std**
+  (`corrected_ci()` in `src/evaluation.py`), using the same Nadeau–Bengio
+  variance correction. The percentile bootstrap over fold scores
+  (`bootstrap_ci()`) is still saved for comparison, but it treats folds
+  as independent and comes out roughly 4× too narrow here.
 - **Nested cross-validation** (`nested_cross_validate()` in
   `src/evaluation.py`) gives the honest generalization estimate for the
   winning model: an outer repeated-stratified-K-fold loop provides the
