@@ -167,7 +167,7 @@ the others, and the anomaly detectors fall to 0.28–0.38 on 2024.
   among graduates who worked while studying vs. 28% among those who
   didn't.
 - **BSEd Math** graduates show higher odds of unemployment (odds ratio
-  2.1), but the CI crosses 1 (0.95–5.06), so this is only suggestive.
+  2.1), but the CI crosses 1 (0.94–5.06), so this is only suggestive.
 - **Every other feature**, including all five survey indices, has a CI
   that includes no effect.
 
