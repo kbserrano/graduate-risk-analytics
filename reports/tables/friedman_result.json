@@ -1,12 +1,12 @@
 {
   "per_repeat": {
-    "statistic": 53.05714285714288,
-    "p_value": 1.142609613909738e-09,
+    "statistic": 50.74285714285713,
+    "p_value": 3.335722546191291e-09,
     "significant_at_0.05": true
   },
   "raw_folds": {
-    "statistic": 156.9428571428573,
-    "p_value": 2.6287687737769423e-31,
+    "statistic": 145.25142857142873,
+    "p_value": 7.801214113788888e-29,
     "significant_at_0.05": true
   }
 }

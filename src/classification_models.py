@@ -71,8 +71,6 @@ def build_a2_xgboost(numeric_features, nominal_features, scale_pos_weight=None):
     training data before building this pipeline.
 
     Requires: pip install xgboost
-    NOT EXECUTED in this project's build environment — verify
-    before trusting its output.
     """
 
     from xgboost import XGBClassifier
@@ -151,17 +149,40 @@ def build_a4_adasyn_rf(numeric_features, nominal_features):
     neighbors than SMOTE's uniform interpolation) — worth
     comparing against A3 rather than assuming one dominates.
 
+    ADASYN has no categorical-aware variant, so it would interpolate
+    the one-hot program columns and the 0/1 BINARY_FEATURES (e.g. a
+    synthetic graduate 0.4 BEED / 0.6 BSEd Math). ValidCategoryADASYN
+    (src/resampling.py) runs plain ADASYN and then snaps each
+    synthetic row to its nearest program and to 0/1, leaving
+    continuous features as interpolated. Binary features are passed
+    through unscaled so they can be rounded.
+
     Requires: pip install imbalanced-learn
-    NOT EXECUTED in this project's build environment — verify
-    before trusting its output.
     """
 
     from imblearn.pipeline import Pipeline as ImbPipeline
-    from imblearn.over_sampling import ADASYN
+    from src.feature_engineering import BINARY_FEATURES
+    from src.resampling import ValidCategoryADASYN
+
+    binary = [f for f in numeric_features if f in BINARY_FEATURES]
+    continuous = [f for f in numeric_features if f not in BINARY_FEATURES]
+
+    preprocess = ColumnTransformer(
+        transformers=[
+            ("nominal", OneHotEncoder(handle_unknown="ignore", sparse_output=False), nominal_features),
+            ("continuous", StandardScaler(), continuous),
+            ("binary", "passthrough", binary)
+        ],
+        verbose_feature_names_out=False
+    ).set_output(transform="pandas")
 
     return ImbPipeline([
-        ("preprocess", build_preprocessor(numeric_features, nominal_features)),
-        ("resample", ADASYN(random_state=RANDOM_STATE)),
+        ("preprocess", preprocess),
+        ("resample", ValidCategoryADASYN(
+            random_state=RANDOM_STATE,
+            onehot_prefixes=tuple(f"{c}_" for c in nominal_features),
+            binary_columns=tuple(binary)
+        )),
         ("classifier", RandomForestClassifier(random_state=RANDOM_STATE))
     ])
 
