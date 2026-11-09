@@ -53,8 +53,8 @@ data. This is the most conservative estimate in the project.
 |---|---|---|---|
 | Logistic regression, class-weighted | Baseline | **0.331** | [0.201, 0.460] |
 | A1 — Random Forest, class-weighted | Classification | 0.321 | [0.208, 0.435] |
-| A4 — ADASYN + Random Forest | Classification | 0.319 | [0.215, 0.424] |
 | A3 — SMOTE-NC + Random Forest | Classification | 0.318 | [0.186, 0.451] |
+| A4 — ADASYN + Random Forest | Classification | 0.317 | [0.211, 0.424] |
 | A2 — XGBoost, scale_pos_weight | Classification | 0.292 | [0.186, 0.398] |
 | B1 — Isolation Forest | Anomaly detection | 0.270 | [0.179, 0.362] |
 | B3 — Local Outlier Factor | Anomaly detection | 0.247 | [0.162, 0.332] |
@@ -66,7 +66,7 @@ data. This is the most conservative estimate in the project.
   comparisons). The anomaly detectors come closest to being significantly
   *worse* (B2, B3: p = 0.06–0.08).
 - **Family A vs. Family B:** all 12 cross-family pairs favour Family A
-  (+0.02 to +0.07), but none is significant (smallest p = 0.21).
+  (+0.02 to +0.07), but none is significant (smallest p = 0.22).
 - Tuning is unstable at this sample size: for example, logistic
   regression's chosen regularization strength flips between C = 0.01 and
   C = 10 across outer folds (`reports/tables/nested_cv_best_params.csv`).
@@ -77,8 +77,8 @@ data. This is the most conservative estimate in the project.
 |---|---|---|---|---|
 | Logistic regression, class-weighted | Baseline | **0.361** | [0.238, 0.483] | **0.638** |
 | A3 — SMOTE-NC + Random Forest | Classification | 0.309 | [0.196, 0.421] | 0.557 |
+| A4 — ADASYN + Random Forest | Classification | 0.304 | [0.191, 0.418] | 0.554 |
 | A1 — Random Forest, class-weighted | Classification | 0.302 | [0.207, 0.397] | 0.552 |
-| A4 — ADASYN + Random Forest | Classification | 0.301 | [0.193, 0.410] | 0.543 |
 | B1 — Isolation Forest | Anomaly detection | 0.275 | [0.202, 0.347] | 0.532 |
 | A2 — XGBoost, scale_pos_weight | Classification | 0.266 | [0.182, 0.351] | 0.487 |
 | B3 — Local Outlier Factor | Anomaly detection | 0.253 | [0.173, 0.332] | 0.497 |
@@ -98,58 +98,64 @@ data. This is the most conservative estimate in the project.
 
 Notebooks 03–05 follow the original design: cross-validate on one
 125-row training split (`random_state=42`) and score the remaining 32
-rows once. On that split Family A looks best (A4 PR-AUC 0.436 vs. 0.343
+rows once. On that split Family A looks best (A1 PR-AUC 0.416 vs. 0.343
 for logistic regression and 0.207–0.282 for Family B). Repeating the
 same protocol with four other split seeds (`07_robustness.ipynb`,
 "Split sensitivity") shows that split is the exception:
 
 | Training split seed | 42 (original) | 0 | 1 | 2 | 3 |
 |---|---|---|---|---|---|
-| Best model (CV PR-AUC) | A4 | LogReg | LogReg | LogReg | LogReg |
-| Family A mean | 0.409 | 0.349 | 0.304 | 0.280 | 0.252 |
+| Best model (CV PR-AUC) | A1 | LogReg | LogReg | LogReg | LogReg |
+| Family A mean | 0.402 | 0.357 | 0.307 | 0.283 | 0.253 |
 | Family B mean | 0.243 | 0.290 | 0.262 | 0.293 | 0.276 |
 | Logistic regression | 0.343 | 0.408 | 0.345 | 0.343 | 0.299 |
 
 Seed 42 is the only split on which any Family A model beats logistic
 regression. Even there, no study model is significantly better than
-logistic regression (`reports/tables/vs_baseline_tests.csv`); the only
-significant pair among the seven study models is A4 vs. B2 (p = 0.0014,
-Bonferroni α = 0.00238; `pairwise_corrected_ttest.csv`), which doesn't
-hold on the full data or under nested CV. The 32-row holdout (6
-unemployed graduates) is too small to settle anything: A4's holdout
-PR-AUC ranges from 0.15 to 0.54 across the five splits, and on seed 42 it
-is 0.145, below the 0.19 base rate.
+logistic regression (`reports/tables/vs_baseline_tests.csv`) and no pair
+of the seven study models differs significantly (smallest p = 0.006, A4
+vs. B2, against Bonferroni α = 0.00238; `pairwise_corrected_ttest.csv`).
+The 32-row holdout (6 unemployed graduates) is too small to settle
+anything: A1's holdout PR-AUC ranges from 0.15 to 0.63 across the five
+splits, and on seed 42 it is 0.149, below the 0.19 base rate.
 
 ### Robustness checks (`notebooks/07_robustness.ipynb`)
 
 | Scenario | n (unemployed) | Base rate | Logistic regression | Best Family A | Best Family B |
 |---|---|---|---|---|---|
 | Primary target, all features | 157 (31) | 0.197 | **0.361** | 0.309 (A3) | 0.275 (B1) |
-| Labour-force target¹ | 145 (19) | 0.131 | **0.315** | 0.298 (A4) | 0.241 (B1) |
-| Occasional work = employed | 157 (26) | 0.166 | **0.296** | 0.245 (A4) | 0.250 (B1) |
-| Pre-outcome features only² | 157 (31) | 0.197 | **0.387** | 0.272 (A3) | 0.260 (B2) |
+| Labour-force target¹ | 145 (19) | 0.131 | **0.315** | 0.273 (A1) | 0.241 (B1) |
+| Occasional work = employed | 157 (26) | 0.166 | **0.296** | 0.241 (A4) | 0.250 (B1) |
+| Six-month outcome² | 142 (19) | 0.134 | **0.281** | 0.254 (A3) | 0.231 (B1) |
+| Pre-outcome features only³ | 157 (31) | 0.197 | **0.387** | 0.272 (A3) | 0.260 (B2) |
 
 ¹ Unemployed = not employed *and* searching; respondents not looking for
 work (homemakers, further study, not searching) are excluded instead of
-being counted as unemployed. ² Program, study hours, working student,
-sex, age — no retrospective survey indices.
+being counted as unemployed. ² Not employed within the first six months
+after graduation (survey question F2), the same window for every
+respondent; the 15 who left it blank are excluded, 9 of whom are
+currently unemployed. ³ Program, study hours, working student, sex,
+age — no retrospective survey indices.
 
 - No scenario produces a significant Family A vs. Family B difference;
   Family A is ahead in 7–11 of the 12 pairs depending on the scenario.
 - Logistic regression has the highest PR-AUC in every scenario and beats
-  the dummy in every scenario (p = 0.003–0.016).
+  the dummy in every scenario (p = 0.003–0.034).
 - Logistic regression does *best* without the retrospective indices
   (0.387), so they add nothing measurable.
 
 **Graduation cohort.** Unemployment differs sharply by cohort: 26% (2023,
 16/61), 4% (2024, 2/54), 31% (2025, 13/42). A model that knows only the
-cohort reaches PR-AUC 0.278, as good as most study models. Training on
-two cohorts and testing on the third, logistic regression reaches ROC-AUC
-0.60 / 0.69 / 0.69 (2023 / 2024 / 2025); the Random Forests reach about
-0.50 on 2023 and 0.55–0.76 on the others, and the anomaly detectors fall
-to 0.28–0.38 on 2024. Cohorts may have been surveyed at different times
-after graduation; until that is documented, cohort differences are a
-possible confound (see "Limitations").
+cohort reaches PR-AUC 0.278, as good as most study models. The survey
+export has no completion dates, but the same ordering appears for the
+first six months after graduation, a window that doesn't depend on when
+each cohort was surveyed: 15% (2023), 4% (2024), 24% (2025) not
+employed. So survey timing alone doesn't explain the 2024 cohort's low
+unemployment; a genuine cohort difference (labour market, hiring cycle,
+or who responded) is more likely. Training on two cohorts and testing on
+the third, logistic regression reaches ROC-AUC 0.60 / 0.69 / 0.69 (2023 /
+2024 / 2025); the Random Forests reach about 0.50 on 2023 and 0.56–0.76 on
+the others, and the anomaly detectors fall to 0.28–0.38 on 2024.
 
 ### Which characteristics matter (`notebooks/06_explainability.ipynb`)
 
@@ -197,12 +203,10 @@ an employer, or a different socioeconomic background).
 - **Outcome definition:** current status at survey time, not time to
   first job; the primary target mixes job-seekers with people not in the
   labour force (sensitivity results above).
-- **Cohort and survey timing:** see above.
+- **Cohort differences:** unemployment varies sharply by cohort, and
+  the survey dates per cohort aren't recorded (see above).
 - **Single institution and programs; response rate unknown**, so results
   may not generalize beyond these respondents.
-- **A4 (ADASYN)** still interpolates the one-hot program columns, creating
-  synthetic graduates who belong partly to two programs; A3 now uses
-  SMOTE-NC, which avoids this.
 - **Raw data:** one birth year was corrected by hand in the raw export
   before analysis; the original export isn't available, so the correction
   is documented (`RAW_DATA_SHA256` in `src/preprocessing.py`) but can't be
@@ -404,10 +408,13 @@ you deliberately choose to version a fixed snapshot for reproducibility.
   individual graduates for support, sex should be dropped or performance
   checked separately for each group, so the model doesn't steer support
   by sex.
-- **SMOTE-NC for A3.** Plain SMOTE after one-hot encoding interpolates the
-  dummy columns; A3 resamples before encoding with SMOTE-NC so synthetic
-  rows keep a real program and 0/1 values. A4 (ADASYN) has no
-  categorical-aware variant and still interpolates.
+- **Synthetic rows keep valid categories.** Plain SMOTE or ADASYN after
+  one-hot encoding interpolates the dummy columns (a synthetic graduate
+  0.4 BEED / 0.6 BSEd Math). A3 resamples before encoding with SMOTE-NC.
+  ADASYN has no categorical-aware variant, so A4 uses
+  `ValidCategoryADASYN` (`src/resampling.py`): plain ADASYN, then each
+  synthetic row is snapped to its nearest program and to 0/1 for the
+  binary features. Continuous features stay interpolated.
 
 ## License
 
