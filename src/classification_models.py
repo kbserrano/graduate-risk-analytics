@@ -96,20 +96,44 @@ def build_a2_xgboost(numeric_features, nominal_features, scale_pos_weight=None):
 
 def build_a3_smote_rf(numeric_features, nominal_features):
     """
-    A3: SMOTE oversampling (fit only on training folds, via
+    A3: SMOTE-NC oversampling (fit only on training folds, via
     imbalanced-learn's Pipeline) + Random Forest.
 
+    Plain SMOTE after one-hot encoding interpolates the dummy columns,
+    producing synthetic graduates who are e.g. 0.4 BEED / 0.6 BSEd
+    Math. SMOTE-NC instead interpolates only the continuous features
+    and gives each synthetic row a real category (the most common one
+    among its neighbours) for `program` and the 0/1 BINARY_FEATURES.
+    Order: scale continuous features (so the k-NN distances aren't
+    dominated by e.g. age) -> SMOTE-NC -> one-hot encode -> RF.
+
     Requires: pip install imbalanced-learn
-    NOT EXECUTED in this project's build environment — verify
-    before trusting its output.
     """
 
     from imblearn.pipeline import Pipeline as ImbPipeline
-    from imblearn.over_sampling import SMOTE
+    from imblearn.over_sampling import SMOTENC
+    from src.feature_engineering import BINARY_FEATURES
+
+    categorical = list(nominal_features) + [f for f in numeric_features if f in BINARY_FEATURES]
+    continuous = [f for f in numeric_features if f not in BINARY_FEATURES]
+
+    scale = ColumnTransformer(
+        transformers=[
+            ("continuous", StandardScaler(), continuous),
+            ("categorical", "passthrough", categorical)
+        ],
+        verbose_feature_names_out=False
+    ).set_output(transform="pandas")
+
+    encode = ColumnTransformer(
+        transformers=[("nominal", OneHotEncoder(handle_unknown="ignore"), nominal_features)],
+        remainder="passthrough"
+    )
 
     return ImbPipeline([
-        ("preprocess", build_preprocessor(numeric_features, nominal_features)),
-        ("resample", SMOTE(random_state=RANDOM_STATE)),
+        ("scale", scale),
+        ("resample", SMOTENC(categorical_features=categorical, random_state=RANDOM_STATE)),
+        ("encode", encode),
         ("classifier", RandomForestClassifier(random_state=RANDOM_STATE))
     ])
 

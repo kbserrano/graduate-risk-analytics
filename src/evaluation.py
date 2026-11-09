@@ -381,7 +381,8 @@ def pairwise_corrected_ttest(raw_scores, n_train, n_test, alpha=0.05,
 
 def nested_cross_validate(build_model_fn, param_grid, X, y,
                            outer_splits=5, outer_repeats=5,
-                           inner_splits=3, random_state=RANDOM_STATE):
+                           inner_splits=3, random_state=RANDOM_STATE,
+                           return_best_params=False):
     """
     Nested CV: an outer RepeatedStratifiedKFold loop provides the
     honest generalization estimate (each outer test fold is never
@@ -402,7 +403,14 @@ def nested_cross_validate(build_model_fn, param_grid, X, y,
     param_grid: sklearn-style param grid, keyed with the
         'classifier__' prefix matching build_model_fn's pipeline.
 
-    Returns: array of per-outer-fold PR-AUC scores (POS_LABEL).
+    Returns: array of per-outer-fold PR-AUC scores (POS_LABEL), or
+    (scores, best_params) with return_best_params=True, where
+    best_params lists the hyperparameters each outer fold's inner
+    search picked — useful to check how stable tuning is.
+
+    Every model run with the same outer_splits/outer_repeats/
+    random_state sees the same outer folds, so per-fold scores can be
+    compared with corrected_resampled_ttest().
     """
 
     from sklearn.model_selection import GridSearchCV, StratifiedKFold
@@ -415,6 +423,7 @@ def nested_cross_validate(build_model_fn, param_grid, X, y,
     y = np.asarray(y)
 
     outer_scores = []
+    best_params = []
 
     for train_idx, test_idx in outer_cv.split(X, y):
 
@@ -433,6 +442,10 @@ def nested_cross_validate(build_model_fn, param_grid, X, y,
         search.fit(X_train_outer, y_train_outer)
 
         outer_scores.append(pr_auc_scorer(search.best_estimator_, X_test_outer, y_test_outer))
+        best_params.append(search.best_params_)
+
+    if return_best_params:
+        return np.array(outer_scores), best_params
 
     return np.array(outer_scores)
 

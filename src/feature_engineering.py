@@ -215,24 +215,29 @@ MODELING_COMPOSITE_VARS = [v for v in COMPOSITE_VARS if v not in LEAKAGE_RISK_VA
 
 NOMINAL_FEATURES = ["program"]
 
-# Reduced, theory-driven feature set (~9 predictors instead of the
-# original ~20) to keep the events-per-predictor ratio for the
-# minority class (31 unemployed cases) closer to the 10-20:1
-# guideline for binary prediction, and to keep only variables that
-# could realistically be known before the employment outcome.
+# Reduced, theory-driven feature set (10 predictors instead of the
+# original ~20), to keep the events-per-predictor ratio as high as
+# the 31 unemployed cases allow — still only ~2.4 per encoded column
+# on the full data (see 02_preprocessing.ipynb), well short of the
+# 10-20:1 guideline. `internship` was dropped: 154 of 157 graduates
+# did one (education programs require it), so it carries almost no
+# information while costing a predictor.
 CANDIDATE_FEATURES = [
-    "program", "study_hours", "internship", "working_student",
-    "sex", "age"
+    "program", "study_hours", "working_student", "sex", "age"
 ] + MODELING_COMPOSITE_VARS
 
 NUMERIC_FEATURES = [f for f in CANDIDATE_FEATURES if f not in NOMINAL_FEATURES]
+
+# 0/1 features: treated as categorical by SMOTENC (A3) so synthetic
+# rows stay 0/1 instead of being interpolated to fractions.
+BINARY_FEATURES = ["working_student", "sex"]
 
 # Sensitivity feature set: only variables fixed before graduation.
 # Drops every composite index — they're all rated retrospectively in
 # the same survey that reports employment, so (like the excluded
 # LEAKAGE_RISK_VARS) they could be coloured by the outcome.
 PRE_OUTCOME_FEATURES = [
-    "program", "study_hours", "internship", "working_student", "sex", "age"
+    "program", "study_hours", "working_student", "sex", "age"
 ]
 PRE_OUTCOME_NUMERIC = [f for f in PRE_OUTCOME_FEATURES if f not in NOMINAL_FEATURES]
 
