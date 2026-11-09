@@ -288,14 +288,17 @@ graduate-risk-analytics/
 ## Setup
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python3.13 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pytest
 ```
 
-`xgboost`, `imbalanced-learn`, and `shap` are listed as optional in
-`requirements.txt` — install them to run the full model set (A2-A4) and
-the SHAP cross-check in `06_explainability.ipynb`.
+`requirements.txt` pins the exact versions the committed results were
+produced with. Newer versions may shift results slightly (e.g. different
+random-number streams in scikit-learn or imbalanced-learn). The tests run
+on every push via GitHub Actions (`.github/workflows/tests.yml`); the
+ones that need the raw survey export skip there.
 
 ## Reproducing the results
 
@@ -393,6 +396,14 @@ you deliberately choose to version a fixed snapshot for reproducibility.
   holdout, and logistic-regression odds ratios get a bootstrap CI over
   respondents (`logreg_odds_ratios()`). SHAP (`get_shap_values()`) is kept
   for ad-hoc use but not used in the notebooks.
+- **Sex is a predictor; that needs a justification in the thesis.** It is
+  in the feature set as a demographic control, not as something the
+  institution could act on, and it has no reliable association with
+  unemployment here (logistic-regression odds ratio 1.31, 95% CI
+  0.82–2.45). If any model from this project were used to flag
+  individual graduates for support, sex should be dropped or performance
+  checked separately for each group, so the model doesn't steer support
+  by sex.
 - **SMOTE-NC for A3.** Plain SMOTE after one-hot encoding interpolates the
   dummy columns; A3 resamples before encoding with SMOTE-NC so synthetic
   rows keep a real program and 0/1 values. A4 (ADASYN) has no

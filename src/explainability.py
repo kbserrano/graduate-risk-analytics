@@ -77,7 +77,7 @@ def get_permutation_importance(fitted_model, X, y, n_repeats=20, random_state=42
 
 
 # ==========================================================
-# SHAP (DOCUMENTED API — NOT EXECUTED HERE)
+# SHAP (optional, not used by the notebooks)
 # ==========================================================
 
 def get_shap_values(fitted_pipeline, X, max_samples=100, pos_label=None):

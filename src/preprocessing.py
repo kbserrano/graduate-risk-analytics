@@ -57,6 +57,9 @@ COLUMN_MAPPINGS = {
     "H1.  What applied to your current situation? Multiple answers possible.":
         "current_situation",
 
+    "F2.  What applied to your situation in the FIRST SIX MONTHS after graduating? Multiple answers possible.":
+        "situation_first_six_months",
+
     "A0. What program did you complete?":
         "program",
 
@@ -519,15 +522,24 @@ def validate(df):
 # PUBLIC ENTRY POINT
 # ==========================================================
 
-def preprocess(df_raw, likert_columns=None):
+def preprocess(df_raw, columns=None, likert_columns=None):
     """
-    Full cleaning + encoding pipeline: rename -> skip-logic fill ->
-    harmonize -> dedupe -> encode. Feature engineering (composite
-    indices, target construction) happens separately in
-    feature_engineering.py.
+    Full cleaning + encoding pipeline, in the same order as
+    02_preprocessing.ipynb: rename -> keep `columns` (default:
+    ANALYSIS_VARIABLES) -> skip-logic fill -> harmonize -> dedupe ->
+    encode. Selecting the analysis columns before de-duplicating
+    matters: on the full export, rows would almost never be exact
+    duplicates (free-text answers, respondent IDs). Feature
+    engineering (composite indices, target construction) happens
+    separately in feature_engineering.py.
     """
 
+    if columns is None:
+        from src.feature_engineering import ANALYSIS_VARIABLES
+        columns = ANALYSIS_VARIABLES
+
     df = rename_columns(df_raw)
+    df = df[columns].copy()
     df = treat_skip_logic_missing_values(df)
     df = harmonize_categories(df)
     df = remove_duplicates(df)
