@@ -23,8 +23,8 @@ from src.preprocessing import (
     remove_duplicates, encode
 )
 from src.feature_engineering import (
-    engineer_features, ANALYSIS_VARIABLES, FINAL_COLUMNS, TARGET_COLUMN,
-    CANDIDATE_FEATURES, POS_LABEL
+    engineer_features, ANALYSIS_VARIABLES, FINAL_COLUMNS, MODELING_COLUMNS,
+    AUX_COLUMNS, TARGET_COLUMN, CANDIDATE_FEATURES, POS_LABEL
 )
 from src.evaluation import pr_auc_scorer
 
@@ -52,12 +52,15 @@ def processed_df():
 
 
 def test_pipeline_produces_no_missing_values(processed_df):
-    assert processed_df.isnull().sum().sum() == 0
+    # Only the modeling columns must be complete; the labour-force
+    # target variant is NaN by design for respondents outside the
+    # labour force.
+    assert processed_df[MODELING_COLUMNS].isnull().sum().sum() == 0
 
 
 def test_pipeline_produces_expected_columns(processed_df):
     assert list(processed_df.columns) == FINAL_COLUMNS
-    assert len(CANDIDATE_FEATURES) == processed_df.shape[1] - 1
+    assert FINAL_COLUMNS == CANDIDATE_FEATURES + [TARGET_COLUMN] + AUX_COLUMNS
 
 
 def test_target_is_binary(processed_df):

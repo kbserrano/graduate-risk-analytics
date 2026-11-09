@@ -6,6 +6,7 @@ Target construction and composite index features.
 """
 
 import re
+import numpy as np
 import pandas as pd
 
 
@@ -47,6 +48,56 @@ def create_target(df):
         .str.contains(pattern, case=False, na=False)
         .astype(int)
     )
+
+    return df
+
+
+# ----------------------------------------------------------
+# Outcome-definition sensitivity variants
+# ----------------------------------------------------------
+# The primary target lumps every non-employed respondent into
+# "unemployed": job-seekers, people not looking for work, homemakers,
+# further study, and occasional/casual workers. These variants test
+# whether the study's conclusions survive narrower definitions.
+# Same coding as the primary target (1 = employed, 0 = at-risk);
+# NaN = excluded from that variant.
+
+SEARCHING_RESPONSE = "Not employed but searching for a job"
+OCCASIONAL_RESPONSE = "Occasional job (just to earn money)"
+
+TARGET_VARIANTS = {
+    # Labour-force definition: at-risk = not employed AND searching;
+    # non-employed respondents who aren't searching (not in the
+    # labour force) are excluded rather than counted as unemployed.
+    "employment_status_labour_force":
+        "at-risk = not employed and searching; others not employed excluded",
+    # Occasional/casual work counts as employed.
+    "employment_status_occasional_employed":
+        "occasional job counted as employed",
+}
+
+
+def _selected(df, response):
+    return (
+        df[TARGET_SOURCE_COLUMN].astype(str)
+        .str.contains(re.escape(response), case=False, na=False)
+    )
+
+
+def create_target_variants(df):
+    """Add the TARGET_VARIANTS columns (requires create_target first)."""
+
+    df = df.copy()
+    employed = df[TARGET_COLUMN] == 1
+
+    labour_force = pd.Series(np.nan, index=df.index)
+    labour_force[employed] = 1
+    labour_force[~employed & _selected(df, SEARCHING_RESPONSE)] = 0
+    df["employment_status_labour_force"] = labour_force
+
+    df["employment_status_occasional_employed"] = (
+        employed | _selected(df, OCCASIONAL_RESPONSE)
+    ).astype(int)
 
     return df
 
@@ -176,6 +227,20 @@ CANDIDATE_FEATURES = [
 
 NUMERIC_FEATURES = [f for f in CANDIDATE_FEATURES if f not in NOMINAL_FEATURES]
 
+# Sensitivity feature set: only variables fixed before graduation.
+# Drops every composite index — they're all rated retrospectively in
+# the same survey that reports employment, so (like the excluded
+# LEAKAGE_RISK_VARS) they could be coloured by the outcome.
+PRE_OUTCOME_FEATURES = [
+    "program", "study_hours", "internship", "working_student", "sex", "age"
+]
+PRE_OUTCOME_NUMERIC = [f for f in PRE_OUTCOME_FEATURES if f not in NOMINAL_FEATURES]
+
+# Graduation cohort. Not a modeling feature (it isn't a property of
+# the graduate that would generalize to future cohorts), but carried
+# in the processed data for cohort-level robustness checks.
+COHORT_COLUMN = "batch"
+
 ANALYSIS_VARIABLES = (
     [TARGET_SOURCE_COLUMN]
     + ["program", "batch", "study_hours", "considered_dropping_out",
@@ -188,7 +253,14 @@ ANALYSIS_VARIABLES = (
     + RETROSPECTIVE_CHOICE_VARS + ["study_satisfaction"]
 )
 
-FINAL_COLUMNS = CANDIDATE_FEATURES + [TARGET_COLUMN]
+MODELING_COLUMNS = CANDIDATE_FEATURES + [TARGET_COLUMN]
+
+# Robustness-only columns; downstream modeling selects
+# CANDIDATE_FEATURES / TARGET_COLUMN explicitly, so these never
+# enter a model unless a notebook asks for them.
+AUX_COLUMNS = [COHORT_COLUMN] + list(TARGET_VARIANTS)
+
+FINAL_COLUMNS = MODELING_COLUMNS + AUX_COLUMNS
 
 
 # ==========================================================
@@ -196,9 +268,11 @@ FINAL_COLUMNS = CANDIDATE_FEATURES + [TARGET_COLUMN]
 # ==========================================================
 
 def engineer_features(df, constructs=CONSTRUCTS):
-    """Full feature engineering pipeline: target, age, composites."""
+    """Full feature engineering pipeline: target (+ sensitivity
+    variants), age, composites."""
 
     df = create_target(df)
+    df = create_target_variants(df)
     df = create_age(df)
     df = create_composite_indices(df, constructs)
 
