@@ -34,6 +34,11 @@ def test_target_variants():
         "House wife/husband, family work",
         "Self-employed/freelance work, Further academic education",
     ]})
+    df["situation_first_six_months"] = [
+        "Employment", "Not employed but searching for a job", None,
+        "Occasional job (just to earn money)", "Employment",
+        "House wife/husband, family work", "Military or other civil service",
+    ]
 
     out = create_target_variants(create_target(df))
 
@@ -43,6 +48,10 @@ def test_target_variants():
     assert lf.iloc[[1, 4]].tolist() == [0, 0]          # searching -> at-risk
     assert lf.iloc[[2, 3, 5]].isna().all()              # not searching -> excluded
     assert out["employment_status_occasional_employed"].tolist() == [1, 0, 0, 1, 1, 0, 1]
+    six = out["employment_status_six_months"]
+    assert six.iloc[[0, 4, 6]].tolist() == [1, 1, 1]
+    assert six.iloc[[1, 3, 5]].tolist() == [0, 0, 0]
+    assert np.isnan(six.iloc[2])                         # blank -> excluded
 
 
 class _ScoreModel:
