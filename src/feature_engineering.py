@@ -74,7 +74,16 @@ TARGET_VARIANTS = {
     # Occasional/casual work counts as employed.
     "employment_status_occasional_employed":
         "occasional job counted as employed",
+    # Same employed/not-employed coding, but from the survey question
+    # about the FIRST SIX MONTHS after graduation (F2) instead of the
+    # current situation (H1). Every respondent answers about the same
+    # window, so this outcome doesn't depend on how long after
+    # graduation they took the survey. NaN where F2 was left blank.
+    "employment_status_six_months":
+        "employed within the first six months after graduation (F2); blank excluded",
 }
+
+SIX_MONTH_SOURCE_COLUMN = "situation_first_six_months"
 
 
 def _selected(df, response):
@@ -98,6 +107,14 @@ def create_target_variants(df):
     df["employment_status_occasional_employed"] = (
         employed | _selected(df, OCCASIONAL_RESPONSE)
     ).astype(int)
+
+    pattern = "|".join(re.escape(r) for r in EMPLOYED_RESPONSES)
+    six_months = df[SIX_MONTH_SOURCE_COLUMN]
+    df["employment_status_six_months"] = (
+        six_months.astype(str).str.contains(pattern, case=False, na=False)
+        .astype(float)
+        .where(six_months.notna())
+    )
 
     return df
 
@@ -247,7 +264,7 @@ PRE_OUTCOME_NUMERIC = [f for f in PRE_OUTCOME_FEATURES if f not in NOMINAL_FEATU
 COHORT_COLUMN = "batch"
 
 ANALYSIS_VARIABLES = (
-    [TARGET_SOURCE_COLUMN]
+    [TARGET_SOURCE_COLUMN, SIX_MONTH_SOURCE_COLUMN]
     + ["program", "batch", "study_hours", "considered_dropping_out",
        "internship", "mandatory_internship_count",
        "mandatory_internship_duration", "voluntary_internship_count",

@@ -1,18 +1,25 @@
-# Core (verified against this project)
-numpy
-pandas
-scipy
-scikit-learn
-matplotlib
-seaborn
-openpyxl        # reading .xlsx raw data
-jupyter
+# Exact versions every committed result was produced with
+# (Python 3.13). Newer versions may change results slightly, e.g. via
+# different random-number streams in scikit-learn or imbalanced-learn.
 
-# Optional — required for Family A models A2-A4 and the SHAP
-# cross-check in 06_explainability.ipynb. Not available in this
-# project's build environment; code was written to each library's
-# documented API but is untested here. Install and verify before
-# trusting their output.
-xgboost
-imbalanced-learn
-shap
+# Core
+numpy==2.4.6
+pandas==3.0.5
+scipy==1.18.0
+scikit-learn==1.9.0
+matplotlib==3.11.1
+seaborn==0.13.2
+openpyxl==3.1.5        # reading the .xlsx raw data
+
+# Models A2-A4
+xgboost==3.4.0
+imbalanced-learn==0.14.2
+
+# Optional: get_shap_values() in src/explainability.py (not used by the notebooks)
+shap==0.52.0
+
+# Notebooks and tests
+jupyter==1.1.1
+nbconvert==7.17.1
+ipykernel==7.3.0
+pytest==9.1.1
